@@ -24,8 +24,22 @@ if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PRO
 app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin.replace(/\/+$/,''))) return callback(null, true);
-    callback(new Error('Origin not allowed by CORS'));
+    if (!origin) return callback(null, true);
+    const clean = origin.replace(/\/+$/, '');
+    if (
+      allowedOrigins.includes('*') ||
+      allowedOrigins.includes(clean) ||
+      clean.endsWith('.vercel.app') ||
+      clean.includes('vercel.app') ||
+      /^https?:\/\/localhost(:\d+)?$/.test(clean) ||
+      /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(clean)
+    ) {
+      return callback(null, true);
+    }
+    console.warn(`Origin not allowed by CORS: ${clean}`);
+    const err = new Error(`Origin ${clean} not allowed by CORS`);
+    err.status = 403;
+    callback(err);
   },
   credentials: true
 }));
