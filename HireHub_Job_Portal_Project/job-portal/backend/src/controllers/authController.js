@@ -20,11 +20,15 @@ export async function register(req, res) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [result] = await conn.query('INSERT INTO users (name,email,password_hash,role) VALUES (?,?,?,?)', [name.trim(), email.toLowerCase().trim(), hash, role]);
-    if (role === 'job_seeker') await conn.query('INSERT INTO job_seeker_profiles (user_id) VALUES (?)', [result.insertId]);
-    if (role === 'employer') await conn.query('INSERT INTO employer_profiles (user_id) VALUES (?)', [result.insertId]);
+    const [result] = await conn.query(
+      'INSERT INTO users (name,email,password_hash,role) VALUES ($1,$2,$3,$4) RETURNING id',
+      [name.trim(), email.toLowerCase().trim(), hash, role]
+    );
+    const userId = result[0].id;
+    if (role === 'job_seeker') await conn.query('INSERT INTO job_seeker_profiles (user_id) VALUES ($1)', [userId]);
+    if (role === 'employer') await conn.query('INSERT INTO employer_profiles (user_id) VALUES ($1)', [userId]);
     await conn.commit();
-    const user = { id: result.insertId, name, email: email.toLowerCase(), role, is_active: 1 };
+    const user = { id: userId, name, email: email.toLowerCase(), role, is_active: true };
     res.status(201).json({ user: publicUser(user), token: issueToken(user) });
   } catch (e) { await conn.rollback(); throw e; }
   finally { conn.release(); }
@@ -33,9 +37,9 @@ export async function register(req, res) {
 export async function login(req, res) {
   const { email, password } = req.body;
   if (typeof email !== 'string' || typeof password !== 'string') {
-    return res.status(400).json({message:'Email and password are required.'});
+    return res.status(400).json({ message: 'Email and password are required.' });
   }
-  const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [String(email || '').toLowerCase().trim()]);
+  const [rows] = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [String(email || '').toLowerCase().trim()]);
   if (!rows.length || !(await bcrypt.compare(password || '', rows[0].password_hash))) return res.status(401).json({ message: 'Invalid email or password.' });
   if (!rows[0].is_active) return res.status(403).json({ message: 'Your account is deactivated. Contact the administrator.' });
   const user = rows[0];
@@ -53,28 +57,20 @@ export async function bootstrapAdmin(req, res) {
       typeof password !== 'string' || password.length < 12) {
     return res.status(400).json({ message: 'Provide name, email and a password of at least 12 characters.' });
   }
-  const connection=await pool.getConnection();
-  let lockAcquired=false,transactionStarted=false;
+  const connection = await pool.getConnection();
   try {
-    const [[lock]]=await connection.query("SELECT GET_LOCK('hirehub_admin_bootstrap', 10) acquired");
-    lockAcquired=lock.acquired===1;
-    if(!lockAcquired) return res.status(503).json({message:'Admin bootstrap is busy. Please retry.'});
-    const [admins]=await connection.query("SELECT id FROM users WHERE role='admin' LIMIT 1");
-    if(admins.length) return res.status(403).json({message:'Admin bootstrap is disabled because an administrator already exists.'});
-    const hash=await bcrypt.hash(password,12);
     await connection.beginTransaction();
-    transactionStarted=true;
-    const [result]=await connection.query("INSERT INTO users (name,email,password_hash,role) VALUES (?,?,?,'admin')",
-      [name.trim(),email.toLowerCase().trim(),hash]);
+    const [admins] = await connection.query("SELECT id FROM users WHERE role='admin' LIMIT 1");
+    if (admins.length) return res.status(403).json({ message: 'Admin bootstrap is disabled because an administrator already exists.' });
+    const hash = await bcrypt.hash(password, 12);
+    const [result] = await connection.query(
+      "INSERT INTO users (name,email,password_hash,role) VALUES ($1,$2,$3,'admin') RETURNING id",
+      [name.trim(), email.toLowerCase().trim(), hash]
+    );
     await connection.commit();
-    transactionStarted=false;
-    res.status(201).json({message:'Admin created. Sign in using the supplied credentials.',userId:result.insertId});
-  } catch(error) {
-    if(transactionStarted) await connection.rollback();
+    res.status(201).json({ message: 'Admin created. Sign in using the supplied credentials.', userId: result[0].id });
+  } catch (error) {
+    await connection.rollback();
     throw error;
-  } finally {
-    try {
-      if(lockAcquired) await connection.query("SELECT RELEASE_LOCK('hirehub_admin_bootstrap')");
-    } finally { connection.release(); }
-  }
+  } finally { connection.release(); }
 }
