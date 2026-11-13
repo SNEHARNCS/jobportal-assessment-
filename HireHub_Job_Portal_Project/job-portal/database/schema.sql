@@ -1,9 +1,28 @@
 -- PostgreSQL Schema for HireHub Job Portal
 
-CREATE TYPE user_role AS ENUM ('admin', 'employer', 'job_seeker');
-CREATE TYPE employment_type AS ENUM ('full-time', 'part-time', 'internship', 'contract', 'work_from_home');
-CREATE TYPE job_status AS ENUM ('draft', 'pending_approval', 'approved', 'rejected', 'closed', 'expired');
-CREATE TYPE application_status AS ENUM ('applied', 'under_review', 'shortlisted', 'interview_scheduled', 'rejected', 'selected', 'withdrawn');
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('admin', 'employer', 'job_seeker');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE employment_type AS ENUM ('full-time', 'part-time', 'internship', 'contract', 'work_from_home');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE job_status AS ENUM ('draft', 'pending_approval', 'approved', 'rejected', 'closed', 'expired');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE application_status AS ENUM ('applied', 'under_review', 'shortlisted', 'interview_scheduled', 'rejected', 'selected', 'withdrawn');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
@@ -112,6 +131,20 @@ RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_users_updated BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_jobs_updated BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_applications_updated BEFORE UPDATE ON applications FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DO $$ BEGIN
+    CREATE TRIGGER trg_users_updated BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TRIGGER trg_jobs_updated BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TRIGGER trg_applications_updated BEFORE UPDATE ON applications FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
