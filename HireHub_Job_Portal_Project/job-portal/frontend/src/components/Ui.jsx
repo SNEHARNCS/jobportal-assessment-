@@ -1,0 +1,5 @@
+export function PageTitle({eyebrow,title,subtitle,action}){return <div className="page-title d-flex justify-content-between align-items-end flex-wrap gap-3"><div>{eyebrow&&<div className="eyebrow">{eyebrow}</div>}<h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action}</div>}
+export function Stat({label,value,icon='bi-graph-up',tone='blue'}){return <div className="stat-card"><div className={`stat-icon ${tone}`}><i className={`bi ${icon}`}/></div><div><div className="stat-value">{value??0}</div><div className="stat-label">{label}</div></div></div>}
+export function Alert({message,type='danger',onClose}){return message?<div className={`alert alert-${type} alert-dismissible`} role="alert">{message}{onClose&&<button className="btn-close" onClick={onClose}/>}</div>:null}
+export function Loading(){return <div className="text-center py-5"><div className="spinner-border text-primary"/><div className="text-muted mt-2">Loading…</div></div>}
+export function Empty({title='Nothing here yet',text='Your information will appear here.'}){return <div className="empty-state"><i className="bi bi-inbox"/><h5>{title}</h5><p>{text}</p></div>}
